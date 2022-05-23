@@ -19,6 +19,26 @@ const { MongoClient, ServerApiVersion } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.uokvn.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
+
+const verifyJWT = (req, res, next) => {
+    const accessToken = req.headers.authorization;
+    if(!accessToken) {
+        res.status(401).send({message: 'Unauthorized Access'});
+    }
+    else {
+        const token = accessToken.split(' ')[0];
+        jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, decoded) => {
+            if(error) {
+                res.status(403).send({message: 'Forbidden Access'})
+            }
+            else {
+                req.decoded = decoded;
+                next();
+            }
+        })
+    }
+}
+
 async function run() {
     try {
         await client.connect();
