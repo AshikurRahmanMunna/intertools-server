@@ -107,6 +107,17 @@ async function run() {
       const result = await ordersCollection.insertOne(order);
       res.send({result, updateResult});
     });
+    app.get('/order/:email', verifyJWT, async(req, res) => {
+      const email = req.params.email;
+      const decodeEmail = req.decoded.email;
+      if(email === decodeEmail) {
+        const orders = await ordersCollection.findOne({email: email});
+        res.send(orders);
+      }
+      else {
+        res.status(403).send('Forbidden Access');
+      }
+    })
   } finally {
   }
 }
