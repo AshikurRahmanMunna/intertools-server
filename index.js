@@ -13,7 +13,7 @@ app.get("/", (req, res) => {
   res.send(`Intertools server is running on port ${port}`);
 });
 
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.uokvn.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, {
   useNewUrlParser: true,
@@ -43,7 +43,7 @@ async function run() {
     await client.connect();
     console.log("Database Connected");
     const toolsCollection = client.db("InterTools").collection("products");
-    const usersCollection = client.db("InterTools").collection("products");
+    const usersCollection = client.db("InterTools").collection("users");
 
     // routes
     app.get("/tools", async (req, res) => {
@@ -60,24 +60,32 @@ async function run() {
       res.send(products);
     });
 
+    app.get("/tools/:id", async (req, res) => {
+      const id = req.params.id;
+      const tool = await toolsCollection.findOne({_id: ObjectId(id)})
+      res.send(tool);
+    });
+
     app.post("/tools", async (req, res) => {
       const tool = req.body;
       const result = await toolsCollection.insertOne(tool);
       res.send(result);
     });
 
-    app.put("/user/email", async (req, res) => {
+    app.put("/user/:email", async (req, res) => {
       const email = req.params.email;
       const user = req.body;
-      const filter = {email: email};
-      const options = {upsert: true};
+      const filter = { email: email };
+      const options = { upsert: true };
       const updateDoc = {
-        $set: user
-      }
+        $set: user,
+      };
       const result = await usersCollection.updateOne(filter, updateDoc, options);
-      const token = jwt.sign({email: email}, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "1d",
-      });
+      const token = jwt.sign(
+        { email: email },
+        process.env.ACCESS_TOKEN_SECRET,
+        { expiresIn: "1d" }
+      );
       res.send({ result, token });
     });
   } finally {
