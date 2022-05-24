@@ -38,6 +38,7 @@ const verifyJWT = (req, res, next) => {
   }
 };
 
+
 async function run() {
   try {
     await client.connect();
@@ -46,6 +47,17 @@ async function run() {
     const usersCollection = client.db("InterTools").collection("users");
     const ordersCollection = client.db("InterTools").collection("orders");
 
+    // verify that user an admin middleware
+    const verifyAdmin = (req, res, next) => {
+      const requesterEmail = req.decodeEmail.email;
+      const requesterAccount = await usersCollection.findOne({email: requesterEmail});
+      if(requesterAccount.role === 'admin') {
+        next()
+      }
+      else {
+        res.status(403).send({message: 'Forbidden Access'});
+      }
+    }
     // routes
     app.get("/tools", async (req, res) => {
       const products = await productsCollection.find({}).toArray();
@@ -79,7 +91,7 @@ async function run() {
       const filter = { email: email };
       const options = { upsert: true };
       const updateDoc = {
-        $set: user,
+        $set: {...user, role: 'user'},
       };
       const result = await usersCollection.updateOne(
         filter,
@@ -115,7 +127,7 @@ async function run() {
         res.send(orders);
       }
       else {
-        res.status(403).send('Forbidden Access');
+        res.status(403).send({message: 'Forbidden Access'});
       }
     })
   } finally {
