@@ -38,50 +38,51 @@ const verifyJWT = (req, res, next) => {
   }
 };
 
-
 async function run() {
   try {
     await client.connect();
     console.log("Database Connected");
-    const productsCollection = client.db("InterTools").collection("products");
+    const toolsCollection = client.db("InterTools").collection("tools");
     const usersCollection = client.db("InterTools").collection("users");
     const ordersCollection = client.db("InterTools").collection("orders");
 
     // verify that user an admin middleware
-    const verifyAdmin = (req, res, next) => {
+    const verifyAdmin = async (req, res, next) => {
       const requesterEmail = req.decodeEmail.email;
-      const requesterAccount = await usersCollection.findOne({email: requesterEmail});
-      if(requesterAccount.role === 'admin') {
-        next()
+      const requesterAccount = await usersCollection.findOne({
+        email: requesterEmail,
+      });
+      if (requesterAccount.role === "admin") {
+        next();
+      } else {
+        res.status(403).send({ message: "Forbidden Access" });
       }
-      else {
-        res.status(403).send({message: 'Forbidden Access'});
-      }
-    }
+    };
     // routes
     app.get("/tools", async (req, res) => {
-      const products = await productsCollection.find({}).toArray();
-      res.send(products);
+      const tools = await toolsCollection.find({}).toArray();
+      res.send(tools);
     });
 
     app.get("/toolsByLimit", async (req, res) => {
       const limit = req.query.limit;
-      const products = await productsCollection
+      const tools = await toolsCollection
         .find({})
         .limit(parseInt(limit))
         .toArray();
-      res.send(products);
+      res.send(tools);
     });
 
     app.get("/tools/:id", async (req, res) => {
       const id = req.params.id;
-      const tool = await productsCollection.findOne({ _id: ObjectId(id) });
+      const tool = await toolsCollection.findOne({ _id: ObjectId(id) });
       res.send(tool);
+      console.log(tool);
     });
 
     app.post("/tools", async (req, res) => {
       const tool = req.body;
-      const result = await productsCollection.insertOne(tool);
+      const result = await toolsCollection.insertOne(tool);
       res.send(result);
     });
 
@@ -91,7 +92,7 @@ async function run() {
       const filter = { email: email };
       const options = { upsert: true };
       const updateDoc = {
-        $set: {...user, role: 'user'},
+        $set: { ...user, role: "user" },
       };
       const result = await usersCollection.updateOne(
         filter,
@@ -106,30 +107,34 @@ async function run() {
       res.send({ result, token });
     });
 
+    app.get("/orderById/:id", verifyJWT, async (req, res) => {
+      const id = req.params.id;
+      const order = await ordersCollection.findOne({ _id: ObjectId(id) });
+      res.send(order);
+    });
+    
     app.post("/order", verifyJWT, async (req, res) => {
       const order = req.body;
-      const toolId = order.toolId;
-      const quantity = order.quantity;
-      const filter = { _id: ObjectId(toolId) };
-      const tool = await productsCollection.findOne(filter);
-      const updateDoc = {
-        $set: { availableQuantity: tool.availableQuantity - quantity },
-      };
-      const updateResult = await productsCollection.updateOne(filter, updateDoc)
       const result = await ordersCollection.insertOne(order);
-      res.send({result, updateResult});
+      res.send(result);
     });
-    app.get('/order/:email', verifyJWT, async(req, res) => {
+
+    app.delete("/order/:id", verifyJWT, async (req, res) => {
+      const id = req.params.id;
+      const result = await ordersCollection.deleteOne({ _id: ObjectId(id) });
+      res.send(result);
+    });
+
+    app.get("/order/:email", verifyJWT, async (req, res) => {
       const email = req.params.email;
       const decodeEmail = req.decoded.email;
-      if(email === decodeEmail) {
-        const orders = await ordersCollection.findOne({email: email});
+      if (email === decodeEmail) {
+        const orders = await ordersCollection.find({ email: email }).toArray();
         res.send(orders);
+      } else {
+        res.status(403).send({ message: "Forbidden Access" });
       }
-      else {
-        res.status(403).send({message: 'Forbidden Access'});
-      }
-    })
+    });
   } finally {
   }
 }
