@@ -45,6 +45,7 @@ async function run() {
     const toolsCollection = client.db("InterTools").collection("tools");
     const usersCollection = client.db("InterTools").collection("users");
     const ordersCollection = client.db("InterTools").collection("orders");
+    const reviewsCollection = client.db("InterTools").collection("reviews");
 
     // verify that user an admin middleware
     const verifyAdmin = async (req, res, next) => {
@@ -77,7 +78,6 @@ async function run() {
       const id = req.params.id;
       const tool = await toolsCollection.findOne({ _id: ObjectId(id) });
       res.send(tool);
-      console.log(tool);
     });
 
     app.post("/tools", async (req, res) => {
@@ -92,7 +92,7 @@ async function run() {
       const filter = { email: email };
       const options = { upsert: true };
       const updateDoc = {
-        $set: { ...user, role: "user" },
+        $set: user,
       };
       const result = await usersCollection.updateOne(
         filter,
@@ -107,12 +107,55 @@ async function run() {
       res.send({ result, token });
     });
 
+    app.get("/user", verifyJWT, verifyAdmin, async (req, res) => {
+      const users = await usersCollection.find({}).toArray();
+      res.send(users);
+    });
+
+    app.get("/user/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      const requesterEmail = req.decoded.email;
+      if (email === requesterEmail) {
+        const user = await usersCollection.findOne({email: email});
+        res.send(user);
+      } else {
+        res.status(403).send({ message: "Forbidden" });
+      }
+    });
+
+    app.put("/updateUser/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      const requesterEmail = req.decoded.email;
+      if (email === requesterEmail) {
+        const filter = { email: email };
+        const updateDoc = {
+          $set: req.body,
+        };
+        const options = { upsert: true };
+        const result = await usersCollection.updateOne(
+          filter,
+          updateDoc,
+          options
+        );
+        res.send(result);
+      } else {
+        res.status(403).send({ message: "Forbidden" });
+      }
+    });
+
+    app.get('/admin/:email', verifyJWT, async(req, res) => {
+      const email = req.params.email;
+      const result = await usersCollection.findOne({email: email});
+      const isAdmin = result?.role === 'admin';
+      res.send({isAdmin});
+    })
+
     app.get("/orderById/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
       const order = await ordersCollection.findOne({ _id: ObjectId(id) });
       res.send(order);
     });
-    
+
     app.post("/order", verifyJWT, async (req, res) => {
       const order = req.body;
       const result = await ordersCollection.insertOne(order);
@@ -134,6 +177,17 @@ async function run() {
       } else {
         res.status(403).send({ message: "Forbidden Access" });
       }
+    });
+
+    app.get("/reviews", async (req, res) => {
+      const reviews = await reviewsCollection.find({}).toArray();
+      res.send(reviews);
+    });
+
+    app.post("/reviews", verifyJWT, async (req, res) => {
+      const review = req.body;
+      const result = await reviewsCollection.insertOne(review);
+      res.send(result);
     });
   } finally {
   }
