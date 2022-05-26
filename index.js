@@ -85,6 +85,12 @@ async function run() {
       const result = await toolsCollection.insertOne(tool);
       res.send(result);
     });
+    
+    app.delete('/tools/:id', async(req, res) => {
+      const id = req.params.id;
+      const result = await toolsCollection.deleteOne({_id: ObjectId(id)});
+      res.send(result);
+    })
 
     app.put("/user/:email", async (req, res) => {
       const email = req.params.email;
