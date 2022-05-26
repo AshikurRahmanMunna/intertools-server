@@ -49,7 +49,7 @@ async function run() {
 
     // verify that user an admin middleware
     const verifyAdmin = async (req, res, next) => {
-      const requesterEmail = req.decodeEmail.email;
+      const requesterEmail = req.decoded.email;
       const requesterAccount = await usersCollection.findOne({
         email: requesterEmail,
       });
@@ -80,7 +80,7 @@ async function run() {
       res.send(tool);
     });
 
-    app.post("/tools", async (req, res) => {
+    app.post("/tools", verifyJWT, async (req, res) => {
       const tool = req.body;
       const result = await toolsCollection.insertOne(tool);
       res.send(result);
@@ -116,14 +116,14 @@ async function run() {
       const email = req.params.email;
       const requesterEmail = req.decoded.email;
       if (email === requesterEmail) {
-        const user = await usersCollection.findOne({email: email});
+        const user = await usersCollection.findOne({ email: email });
         res.send(user);
       } else {
         res.status(403).send({ message: "Forbidden" });
       }
     });
 
-    app.put("/updateUser/:email", verifyJWT, async (req, res) => {
+    app.put("/updateUser/:email", verifyJWT, verifyAdmin, async (req, res) => {
       const email = req.params.email;
       const requesterEmail = req.decoded.email;
       if (email === requesterEmail) {
@@ -143,12 +143,27 @@ async function run() {
       }
     });
 
-    app.get('/admin/:email', verifyJWT, async(req, res) => {
+    app.put("/makeAdmin/:email", verifyJWT, verifyAdmin, async (req, res) => {
       const email = req.params.email;
-      const result = await usersCollection.findOne({email: email});
-      const isAdmin = result?.role === 'admin';
-      res.send({isAdmin});
-    })
+      const filter = { email: email };
+      const updateDoc = {
+        $set: req.body,
+      };
+      const options = { upsert: true };
+      const result = await usersCollection.updateOne(
+        filter,
+        updateDoc,
+        options
+      );
+      res.send(result);
+    });
+
+    app.get("/admin/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      const result = await usersCollection.findOne({ email: email });
+      const isAdmin = result?.role === "admin";
+      res.send({ isAdmin });
+    });
 
     app.get("/orderById/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
