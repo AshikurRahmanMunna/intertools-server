@@ -186,6 +186,11 @@ async function run() {
       const isAdmin = result?.role === "admin";
       res.send({ isAdmin });
     });
+    
+    app.get('/order', verifyJWT, verifyAdmin, async(req, res) => {
+      const orders = await ordersCollection.find({}).toArray();
+      res.send(orders);
+    })
 
     app.get("/orderById/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
@@ -229,6 +234,16 @@ async function run() {
       const result = await paymentCollection.insertOne(payment);
       const updatedBooking = await ordersCollection.updateOne(filter, updatedDoc);
       res.send(updatedBooking);
+    })
+    app.put('/order/:id', verifyJWT, verifyAdmin, async(req, res) => {
+      const id = req.params.id;
+      const filter = {_id: ObjectId(id)};
+      const updateDoc = {
+        $set: req.body
+      }
+      const options = {upsert: true};
+      const result = await ordersCollection.updateOne(filter, updateDoc, options);
+      res.send(orders);
     })
 
     app.get("/reviews", async (req, res) => {
