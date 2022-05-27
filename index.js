@@ -224,7 +224,6 @@ async function run() {
         }
       }
       const updated = await toolsCollection.updateOne(filter, updateDoc);
-      console.log(newQuantity);
       const result = await ordersCollection.deleteOne({ _id: ObjectId(id) });
       res.send(result);
     });
