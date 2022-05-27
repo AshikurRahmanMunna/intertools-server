@@ -200,12 +200,31 @@ async function run() {
 
     app.post("/order", verifyJWT, async (req, res) => {
       const order = req.body;
+      const toolId = req.query.toolId;
+      const newQuantity = req.query.newQuantity;
+      const filter = {_id: ObjectId(toolId)};
+      const updateDoc = {
+        $set: {
+          availableQuantity: newQuantity
+        }
+      }
+      const updated = await toolsCollection.updateOne(filter, updateDoc);
       const result = await ordersCollection.insertOne(order);
       res.send(result);
     });
 
     app.delete("/order/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
+      const toolId = req.query.toolId;
+      const newQuantity = req.query.newQuantity;
+      const filter = {_id: ObjectId(toolId)};
+      const updateDoc = {
+        $set: {
+          availableQuantity: parseInt(newQuantity)
+        }
+      }
+      const updated = await toolsCollection.updateOne(filter, updateDoc);
+      console.log(newQuantity);
       const result = await ordersCollection.deleteOne({ _id: ObjectId(id) });
       res.send(result);
     });
@@ -234,8 +253,10 @@ async function run() {
       const result = await paymentCollection.insertOne(payment);
       const updatedBooking = await ordersCollection.updateOne(filter, updatedDoc);
       res.send(updatedBooking);
+      console.log(payment.availableQuantity - payment.quantity)
     })
-    app.put('/order/:id', verifyJWT, verifyAdmin, async(req, res) => {
+
+    app.put('/order/:id', verifyJWT, async(req, res) => {
       const id = req.params.id;
       const filter = {_id: ObjectId(id)};
       const updateDoc = {
