@@ -243,7 +243,7 @@ async function run() {
       }
       const options = {upsert: true};
       const result = await ordersCollection.updateOne(filter, updateDoc, options);
-      res.send(orders);
+      res.send(result);
     })
 
     app.get("/reviews", async (req, res) => {
