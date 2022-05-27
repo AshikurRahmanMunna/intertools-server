@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 
@@ -22,11 +23,11 @@ const client = new MongoClient(uri, {
 });
 
 const verifyJWT = (req, res, next) => {
-  const accessToken = req.headers.authorization;
-  if (!accessToken) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
     res.status(401).send({ message: "Unauthorized Access" });
   } else {
-    const token = accessToken.split(" ")[1];
+    const token = authHeader.split(" ")[1];
     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, decoded) => {
       if (error) {
         res.status(403).send({ message: "Forbidden Access" });
@@ -46,6 +47,7 @@ async function run() {
     const usersCollection = client.db("InterTools").collection("users");
     const ordersCollection = client.db("InterTools").collection("orders");
     const reviewsCollection = client.db("InterTools").collection("reviews");
+    const paymentCollection = client.db("InterTools").collection("payments");
 
     // verify that user an admin middleware
     const verifyAdmin = async (req, res, next) => {
@@ -60,6 +62,20 @@ async function run() {
       }
     };
     // routes
+
+    app.post('/create-payment-intent', verifyJWT, async(req, res) => {
+      const tool = req.body;
+      const price = tool.price;
+      const amount = price * 100;
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount : amount,
+        currency: 'usd',
+        payment_method_types:['card']
+      });
+      res.send({clientSecret: paymentIntent.client_secret})
+    });
+
+
     app.get("/tools", async (req, res) => {
       const tools = await toolsCollection.find({}).toArray();
       res.send(tools);
@@ -199,6 +215,21 @@ async function run() {
         res.status(403).send({ message: "Forbidden Access" });
       }
     });
+
+    app.patch('/order/:id', verifyJWT, async(req, res) =>{
+      const id  = req.params.id;
+      const payment = req.body;
+      const filter = {_id: ObjectId(id)};
+      const updatedDoc = {
+        $set: {
+          isPaid: true,
+          transactionId: payment.transactionId
+        }
+      }
+      const result = await paymentCollection.insertOne(payment);
+      const updatedBooking = await ordersCollection.updateOne(filter, updatedDoc);
+      res.send(updatedBooking);
+    })
 
     app.get("/reviews", async (req, res) => {
       const reviews = await reviewsCollection.find({}).toArray();
